@@ -77,8 +77,11 @@ same day (the file becomes `YYYY-MM-DD-<slug>.md`).
 
 ## Install
 
+Install the published [`dsh-diary`](https://www.npmjs.com/package/dsh-diary) package into the web
+profile:
+
 ```sh
-dsh plugin --profile web add <path-or-tarball-of-this-plugin>
+dsh plugin --profile web add dsh-diary
 ```
 
 Then restart the web server for the new layer (tools + settings section) to take effect.
