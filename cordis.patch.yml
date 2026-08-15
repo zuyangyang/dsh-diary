@@ -1,0 +1,14 @@
+# dsh-diary bundle patch: one insert over the profile root. The plugin's
+# module exports `inject: ['tools']`, so it activates once the tool registry
+# is available and registers the diary tool family on `ctx.tools`.
+#
+# `directory` is optional; when omitted the plugin writes under
+# $DSH_HOME/diaries (defaulting to ~/.dsh/diaries). Here it points at the
+# session workspace so entries live alongside the project instead of the
+# hidden ~/.dsh directory.
+
+- insert:
+    - id: dsh-diary
+      name: 'dsh-diary'
+      config:
+        directory: /Users/gooingyu/Documents/dsh
