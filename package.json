@@ -39,7 +39,8 @@
   ],
   "scripts": {
     "build": "node build.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/auth.test.js"
   },
   "dependencies": {
     "js-yaml": "^4.1.0",

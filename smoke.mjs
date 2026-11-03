@@ -16,7 +16,7 @@ ctx.provide('typert', { register() { return () => {} } })
 apply(ctx, { directory: root })
 
 const names = registered.map(t => t.name)
-const expected = ['diary_create', 'diary_list', 'diary_read', 'diary_update', 'diary_delete', 'diary_search', 'diary_template_list', 'diary_template_read', 'diary_template_set', 'diary_template_delete']
+const expected = ['diary_create', 'diary_list', 'diary_read', 'diary_update', 'diary_delete', 'diary_search', 'diary_claim', 'diary_template_list', 'diary_template_read', 'diary_template_set', 'diary_template_delete']
 if (name !== 'dsh-diary') throw new Error(`bad module name: ${name}`)
 if (JSON.stringify(inject) !== JSON.stringify(['tools', 'typert'])) throw new Error(`bad inject: ${JSON.stringify(inject)}`)
 for (const n of expected) if (!names.includes(n)) throw new Error(`missing tool ${n}`)
@@ -135,6 +135,116 @@ console.log('runtime getEntry →', { title: runtimeGot.title, content: runtimeG
 const runtimeDeleted = await runtime.deleteEntry('2026-08-17', '')
 if (!runtimeDeleted.deleted) throw new Error('runtime deleteEntry failed')
 console.log('runtime deleteEntry → OK')
+
+// ── family auth: pending bucket, read scoping, and the claim file move ──
+// The service is provided after the tools were registered, exactly like a
+// profile whose plugin layer loads dsh-family-auth later: the deferred
+// ctx.inject must pick it up and every tool must switch to scoped storage.
+const ownerActor = { id: 'u_owner', name: '户主', role: 'owner' }
+const memberActor = { id: 'u_member', name: '小乙', role: 'member' }
+const execFor = sessionId => ({ signal: new AbortController().signal, agent: { session: { id: sessionId } } })
+const execOwner = execFor('sess-owner')
+const execMember = execFor('sess-member')
+const execAnonymous = { signal: new AbortController().signal }
+const fakeAuth = {
+  defineModule() {},
+  actorOf(exec) {
+    const id = exec?.agent?.session?.id
+    if (id === 'sess-owner') return ownerActor
+    if (id === 'sess-member') return memberActor
+    return null
+  },
+  mustWrite(exec) {
+    const actor = fakeAuth.actorOf(exec)
+    return actor ? { ownerId: actor.id, anonymous: false } : { ownerId: 'default', anonymous: true }
+  },
+  // Mirrors dsh-family-auth: unrestricted for the owner, own + shared for a
+  // member, shared-only for a conversation with no binding.
+  readScope(exec) {
+    const actor = fakeAuth.actorOf(exec)
+    if (!actor) return new Set(['default'])
+    if (actor.role === 'owner') return null
+    return new Set([actor.id, 'default'])
+  },
+  ownerLabel(id) {
+    if (id === 'default') return '未识别'
+    return id === ownerActor.id ? ownerActor.name : id === memberActor.id ? memberActor.name : id
+  },
+  findMember(name) {
+    if (name === ownerActor.name) return { id: ownerActor.id, name: ownerActor.name }
+    if (name === memberActor.name) return { id: memberActor.id, name: memberActor.name }
+    return null
+  },
+  mustAccess() {},
+  record() {},
+}
+ctx.provide('familyAuth', fakeAuth)
+await new Promise(resolve => setTimeout(resolve, 0))
+
+const pendingCreated = await byName.diary_create.execute(
+  { date: '2026-08-20', title: '待认领', content: '没人认领的时候写的一篇。' },
+  execAnonymous,
+)
+if (!pendingCreated.path.includes('_pending')) throw new Error('anonymous write did not land in the pending bucket: ' + pendingCreated.path)
+if (pendingCreated.owner !== '未识别') throw new Error('unexpected pending owner label: ' + pendingCreated.owner)
+console.log('auth create (anonymous) →', pendingCreated.path)
+
+const ownerSawPending = await byName.diary_list.execute({}, execOwner)
+const ownerPendingRow = ownerSawPending.entries.find(entry => entry.date === '2026-08-20')
+if (ownerPendingRow === undefined) throw new Error('the household owner cannot see the pending entry')
+if (ownerPendingRow.owner !== '未识别') throw new Error('pending row is missing its owner label')
+console.log('auth list (owner) → pending entry visible as', ownerPendingRow.owner)
+
+const memberListBefore = await byName.diary_list.execute({}, execMember)
+if (memberListBefore.entries.some(entry => entry.date === '2026-08-20')) throw new Error('a member can see the pending entry')
+let memberBlocked = false
+try {
+  await byName.diary_read.execute({ date: '2026-08-20' }, execMember)
+} catch {
+  memberBlocked = true
+}
+if (!memberBlocked) throw new Error('a member could read the pending entry')
+console.log('auth read (member) → pending entry refused as expected')
+
+let memberClaimBlocked = false
+try {
+  await byName.diary_claim.execute({ member: memberActor.name }, execMember)
+} catch {
+  memberClaimBlocked = true
+}
+if (!memberClaimBlocked) throw new Error('a member could claim entries')
+
+const dryRun = await byName.diary_claim.execute({ member: memberActor.name, date: '2026-08-20', dry_run: true }, execOwner)
+if (dryRun.entries.length !== 1) throw new Error('dry_run did not preview the pending entry')
+const stillPending = await byName.diary_list.execute({}, execOwner)
+if (stillPending.entries.every(entry => entry.date !== '2026-08-20')) throw new Error('dry_run moved the entry')
+console.log('auth claim dry_run → previewed', dryRun.entries.length, 'entry')
+
+const claimed = await byName.diary_claim.execute({ member: memberActor.name, date: '2026-08-20' }, execOwner)
+if (claimed.claimed !== 1) throw new Error('claim did not move the pending entry')
+const claimedPath = claimed.entries[0].to
+if (!claimedPath.includes('/u_member/')) throw new Error('claim did not move the file into the member directory: ' + claimedPath)
+if (claimed.entries[0].from.includes('/u_member/')) throw new Error('claim moved the file from the wrong place')
+console.log('auth claim →', claimed.entries[0].from, '→', claimedPath)
+
+const memberReadAfterClaim = await byName.diary_read.execute({ date: '2026-08-20' }, execMember)
+if (memberReadAfterClaim.content !== '没人认领的时候写的一篇。') throw new Error('member cannot read the claimed entry')
+if (memberReadAfterClaim.owner !== memberActor.name) throw new Error('claimed entry is labelled with the wrong owner: ' + memberReadAfterClaim.owner)
+console.log('auth read (member, after claim) →', memberReadAfterClaim.owner)
+
+const memberListAfter = await byName.diary_list.execute({}, execMember)
+const memberRow = memberListAfter.entries.find(entry => entry.date === '2026-08-20')
+if (memberRow === undefined || memberRow.owner !== memberActor.name) throw new Error('member list does not show the claimed entry under their name')
+// The single-user entries from before the auth service loaded stay in the
+// legacy root bucket, which a member must never see.
+if (memberListAfter.entries.some(entry => entry.date === '2026-08-14')) throw new Error('a member can read the legacy root entries')
+console.log('auth list (member) →', memberListAfter.total, 'entries, legacy root hidden')
+
+const panelRows = await runtime.listEntries()
+if (!panelRows.every(row => typeof row.owner === 'string' && typeof row.ownerName === 'string')) {
+  throw new Error('panel rows are missing the owner label')
+}
+console.log('auth panel listEntries →', panelRows.length, 'rows labelled')
 
 await rm(root, { recursive: true, force: true })
 console.log('\nALL SMOKE TESTS PASSED')
