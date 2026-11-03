@@ -78,7 +78,7 @@ same day (the file becomes `YYYY-MM-DD-<slug>.md`).
 
 ## Family diaries with dsh-family-auth
 
-[dsh-family-auth](https://github.com/hyperMoss/dsh-family-auth) is an optional sibling plugin. When
+[dsh-family-auth](https://github.com/zuyangyang/dsh-family-auth) is an optional sibling plugin. When
 the profile loads it, the diary becomes per-member:
 
 ```yaml
