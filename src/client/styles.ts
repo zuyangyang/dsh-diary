@@ -247,6 +247,15 @@ export const cssText = `
   font-size: 12px;
   font-family: var(--dsw-font-mono, monospace);
 }
+.dsh_diary_entryOwner {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1));
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 18px;
+}
 .dsh_diary_entryTitle {
   min-width: 0;
   overflow: hidden;

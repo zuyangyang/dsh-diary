@@ -50,6 +50,10 @@ export const entryMetaSchema = z.object({
   fileName: z.string(),
   sizeBytes: z.number(),
   modifiedAt: z.string(),
+  /** Owner bucket id, or '' for the historical files at the diary root. */
+  owner: z.string(),
+  /** Owner display name shown next to the entry in the board. */
+  ownerName: z.string(),
 }).readonly()
 export type EntryMeta = z.infer<typeof entryMetaSchema>
 
@@ -162,6 +166,13 @@ export const DIARY_INVOCATIONS: readonly InvocationDescriptor[] = [
     parameters: [
       { name: 'date', wire: 'date', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: z.string() } },
       { name: 'slug', wire: 'slug', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: z.string() } },
+      {
+        name: 'owner',
+        wire: 'owner',
+        source: 'json',
+        codec: { mode: 'strict', typeSymbol: 'string', schema: z.string() },
+        acceptsUndefined: true,
+      },
     ],
     result: { mode: 'strict', typeSymbol: 'dsh-diary#EntryContent', schema: entryContentSchema },
   },
@@ -185,6 +196,13 @@ export const DIARY_INVOCATIONS: readonly InvocationDescriptor[] = [
     parameters: [
       { name: 'date', wire: 'date', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: z.string() } },
       { name: 'slug', wire: 'slug', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: z.string() } },
+      {
+        name: 'owner',
+        wire: 'owner',
+        source: 'json',
+        codec: { mode: 'strict', typeSymbol: 'string', schema: z.string() },
+        acceptsUndefined: true,
+      },
     ],
     result: { mode: 'strict', typeSymbol: 'dsh-diary#EntryDeleted', schema: entryDeletedSchema },
   },

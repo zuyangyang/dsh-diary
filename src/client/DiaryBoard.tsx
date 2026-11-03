@@ -15,6 +15,10 @@ export interface BoardEntryMeta {
   fileName: string
   sizeBytes: number
   modifiedAt: string
+  /** Owner bucket id; '' for the historical files directly under the diary root. */
+  owner: string
+  /** Owner display name; empty in a single-user deployment. */
+  ownerName: string
 }
 
 /** One template as listed by the Remote. */
@@ -28,9 +32,9 @@ export interface BoardTemplateMeta {
 /** Injected business face: the `diary` Remote, unwrapped into plain callbacks. */
 export interface DiaryBoardInjected {
   listEntries: () => Promise<BoardEntryMeta[]>
-  getEntry: (date: string, slug: string) => Promise<{ date: string; slug: string; title: string; tags: string[]; content: string }>
+  getEntry: (date: string, slug: string, owner: string) => Promise<{ date: string; slug: string; title: string; tags: string[]; content: string }>
   createEntry: (input: { date?: string; title?: string; content?: string }) => Promise<void>
-  deleteEntry: (date: string, slug: string) => Promise<void>
+  deleteEntry: (date: string, slug: string, owner: string) => Promise<void>
   listTemplates: () => Promise<BoardTemplateMeta[]>
   getTemplate: (name: string) => Promise<string>
 }
@@ -48,6 +52,9 @@ function todayIso(): string {
 
 /** Group `YYYY-MM-DD` into its `YYYY-MM` month key. */
 const monthOf = (date: string): string => date.slice(0, 7)
+
+/** Stable identity of one board row: date, slug, and the owner that holds it. */
+const entryKey = (entry: BoardEntryMeta): string => `${entry.owner}|${entry.date}|${entry.slug}`
 
 /**
  * Render a template's `{{name}}` placeholders against the form's date/title.
@@ -154,14 +161,16 @@ export function DiaryBoard({ listEntries, getEntry, createEntry, deleteEntry, li
   }
 
   const toggleEntry = async (entry: BoardEntryMeta): Promise<void> => {
-    const key = `${entry.date}|${entry.slug}`
+    // The owner is part of an entry's identity: two members may journal the same
+    // date, and entries in the panel may share a slug.
+    const key = entryKey(entry)
     if (openKey === key) {
       setOpenKey('')
       setOpenBody(null)
       return
     }
     try {
-      const body = await getEntry(entry.date, entry.slug)
+      const body = await getEntry(entry.date, entry.slug, entry.owner)
       setOpenKey(key)
       setOpenBody({ title: body.title, content: body.content })
       setError('')
@@ -197,8 +206,8 @@ export function DiaryBoard({ listEntries, getEntry, createEntry, deleteEntry, li
   const remove = async (entry: BoardEntryMeta): Promise<void> => {
     if (!window.confirm(t('board.confirmDelete', { name: entry.title || entry.date }))) return
     try {
-      await deleteEntry(entry.date, entry.slug)
-      if (openKey === `${entry.date}|${entry.slug}`) {
+      await deleteEntry(entry.date, entry.slug, entry.owner)
+      if (openKey === entryKey(entry)) {
         setOpenKey('')
         setOpenBody(null)
       }
@@ -282,17 +291,18 @@ export function DiaryBoard({ listEntries, getEntry, createEntry, deleteEntry, li
             <section key={month} className="dsh_diary_month">
               <h3 className="dsh_diary_monthHeader">{month}</h3>
               {monthEntries.map(entry => (
-                <div key={`${entry.date}|${entry.slug}`} className="dsh_diary_entry">
+                <div key={entryKey(entry)} className="dsh_diary_entry">
                   <div className="dsh_diary_row">
                     <button type="button" className="dsh_diary_entryName" onClick={() => { void toggleEntry(entry) }}>
                       <span className="dsh_diary_entryDate">{entry.date.slice(5)}</span>
+                      {entry.ownerName !== '' && <span className="dsh_diary_entryOwner">{entry.ownerName}</span>}
                       <span className="dsh_diary_entryTitle">{entryLabel(entry)}</span>
                     </button>
                     <button type="button" className="dsh_diary_button dsh_diary_buttonDanger" disabled={loading} onClick={() => { void remove(entry) }}>
                       {t('board.delete')}
                     </button>
                   </div>
-                  {openKey === `${entry.date}|${entry.slug}` && openBody !== null && (
+                  {openKey === entryKey(entry) && openBody !== null && (
                     <pre className="dsh_diary_body">{openBody.content}</pre>
                   )}
                 </div>

@@ -38,9 +38,9 @@ interface DiaryFace {
   setTemplate(name: string, content: string): Promise<RemoteResult<{ name: string; sizeBytes: number }>>
   deleteTemplate(name: string): Promise<RemoteResult<{ deleted: boolean }>>
   listEntries(): Promise<RemoteResult<readonly EntryMeta[]>>
-  getEntry(date: string, slug: string): Promise<RemoteResult<{ date: string; slug: string; title: string; tags: string[]; content: string }>>
+  getEntry(date: string, slug: string, owner?: string): Promise<RemoteResult<{ date: string; slug: string; title: string; tags: string[]; content: string }>>
   createEntry(input: EntryCreateInput): Promise<RemoteResult<{ path: string; date: string; slug: string; title: string; tags: string[] }>>
-  deleteEntry(date: string, slug: string): Promise<RemoteResult<{ deleted: boolean }>>
+  deleteEntry(date: string, slug: string, owner?: string): Promise<RemoteResult<{ deleted: boolean }>>
 }
 
 /**
@@ -102,9 +102,9 @@ export function apply(ctx: ClientContext): void {
   // the conversation. Plain callbacks + the locale translator cross into it.
   const boardInjected: DiaryBoardInjected = {
     listEntries: () => unwrap(face => face.listEntries()),
-    getEntry: (date, slug) => unwrap(face => face.getEntry(date, slug)),
+    getEntry: (date, slug, owner) => unwrap(face => face.getEntry(date, slug, owner)),
     createEntry: input => unwrap(face => face.createEntry(input)).then(() => undefined),
-    deleteEntry: (date, slug) => unwrap(face => face.deleteEntry(date, slug)).then(() => undefined),
+    deleteEntry: (date, slug, owner) => unwrap(face => face.deleteEntry(date, slug, owner)).then(() => undefined),
     listTemplates: () => unwrap(face => face.listTemplates()),
     getTemplate: name => unwrap(face => face.getTemplate(name)).then(value => value.content),
   }
