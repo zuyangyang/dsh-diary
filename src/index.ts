@@ -703,8 +703,18 @@ export function apply(ctx: Context, config: Config = {}): void {
   // endpoints through the strict registry.
   new DiaryRuntime(ctx, authConfig, panel, identity)
   ctx.effect(() => {
-    const dispose = ctx.typert.register(TYPERT_MANIFEST)
-    return () => { void dispose() }
+    // The manifest only feeds the settings panel's RPC. When another typert
+    // contribution already claims the "diary" namespace, register() throws - and
+    // a throw inside an activation effect takes the whole plugin down, losing the
+    // diary tools over a panel. Degrade to "no panel" instead.
+    let dispose: (() => unknown) | undefined
+    try {
+      dispose = ctx.typert.register(TYPERT_MANIFEST)
+    } catch (error) {
+      ctx.logger?.warn?.('[dsh-diary] typert manifest skipped: '
+        + (error instanceof Error ? error.message : String(error)))
+    }
+    return () => { void dispose?.() }
   }, 'dsh-diary: typert manifest')
 
   ctx.tools.register(defineTool({
