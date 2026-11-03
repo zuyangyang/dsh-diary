@@ -145,6 +145,13 @@ and therefore cannot resolve an actor. That is an acknowledged limitation, not i
 
 Template management keeps working in every panel mode; templates are household-shared.
 
+> **Known limitation on DSH 0.2.1-rc.3** (the family profile's runtime): the board and settings
+> section do not render there. The panel's Typert manifest is declared in the newer
+> `schema`-based form, while rc.3 requires a `create()` codec factory per schema, so the host
+> rejects the manifest. The plugin now degrades instead of dying — the **tools and the CLI use are
+> unaffected**, only the browser panel is missing until the contract is ported to the older
+> protocol.
+
 ## Install
 
 Install the published [`dsh-diary`](https://www.npmjs.com/package/dsh-diary) package into the web

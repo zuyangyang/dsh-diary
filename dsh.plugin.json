@@ -1,7 +1,7 @@
 {
   "name": "dsh-diary",
   "description": "Diary plugin for DeepSeek Harness: create and manage daily markdown journal entries",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "entry": {
     "name": "dsh-diary",
     "inject": [

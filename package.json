@@ -1,7 +1,7 @@
 {
   "name": "dsh-diary",
   "description": "Diary plugin for DeepSeek Harness: daily markdown journal entries, custom templates, and a web settings section",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
