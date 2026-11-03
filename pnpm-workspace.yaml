@@ -1,5 +1,0 @@
-# pnpm 11 blocks dependency build scripts by default. esbuild's native binary is
-# provided by its platform-specific optional dependency, so its postinstall is
-# unnecessary; keeping it disabled makes `pnpm install` clean and non-interactive.
-allowBuilds:
-  esbuild: false
